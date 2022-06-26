@@ -63,6 +63,7 @@ const VERSION = '0.9.2';              // web eSheep version
 const ACTIVATE_DEBUG = false;         // show log on console
 const DEFAULT_XML = "https://adrianotiger.github.io/desktopPet/Pets/esheep64/animations.xml"; // default XML animation
 const COLLISION_WITH = ["div", "hr"]; // elements on page to detect for collisions
+let xmlStorage = new Object();
 
   /*
    * eSheep class.
@@ -136,22 +137,37 @@ class eSheep
 
     var ajax = new XMLHttpRequest();
     var sheepClass = this;
+    var name = this.animationFile + "-file";
+    var cache = window.sessionStorage.getItem(name);
 
-    ajax.open("GET", this.animationFile, true);
-    ajax.addEventListener("readystatechange", function() {
-      if(this.readyState == 4)
-      {
-        if(this.status == 200)
-            // successfully loaded XML, parse it and create first esheep.
-          sheepClass._parseXML(this.responseText);
-        else
-          console.error("XML not available:" + this.statusText + "\n" + this.responseText);
-      }
-    });
-    ajax.send(null);
+    if(cache === null)
+    {
+      ajax.open("GET", this.animationFile, true);
+      ajax.addEventListener("readystatechange", function() {
+        if(this.readyState == 4)
+        {
+          if(this.status == 200)
+          {
+              // successfully loaded XML, parse it and create first esheep.
+            window.sessionStorage.setItem(name, this.responseText); // store it into the session storage
+            sheepClass._parseXML(this.responseText);
+          }
+          else
+          {
+            console.error("XML not available:" + this.statusText + "\n" + this.responseText);
+          }
+        }
+      });
+      ajax.send(null);
+    }
+    else
+    {
+      sheepClass._parseXML(cache);
+    }
   }
 
-  remove() {
+  remove()
+  {
     this.prepareToDie = true;
     this.DOMinfo.Hide();
     setTimeout(()=>{
@@ -165,7 +181,16 @@ class eSheep
      */
   _parseXML(text)
   {
-    this.xmlDoc = this.parser.parseFromString(text,'text/xml');
+    var cache = xmlStorage[this.animationFile];
+    if(cache === undefined)
+    {
+      this.xmlDoc = this.parser.parseFromString(text, 'text/xml');
+      xmlStorage[this.animationFile] = this.xmlDoc; // store it in a temporary storage dictionary
+    }
+    else
+    {
+      this.xmlDoc = cache;
+    }
     var image = this.xmlDoc.getElementsByTagName('image')[0];
     this.tilesX = image.getElementsByTagName("tilesx")[0].textContent;
     this.tilesY = image.getElementsByTagName("tilesy")[0].textContent;
