@@ -8,7 +8,7 @@
  * Author:
  *                Adriano Petrucci (http://esheep.petrucci.ch)
  *
- * Version:       0.9.2
+ * Version:       0.9.3
  *
  * Introduction:
  *                As "wrapper" for the OpenSource C# project
@@ -65,7 +65,9 @@ const VERSION = '0.9.3';              // web eSheep version
 const ACTIVATE_DEBUG = false;         // show log on console
 const DEFAULT_XML = "https://adrianotiger.github.io/desktopPet/Pets/esheep64/animations.xml"; // default XML animation
 const COLLISION_WITH = ["div", "hr"]; // elements on page to detect for collisions
-let xmlStorage = new Object();
+let xmlStorage = new Object();        // stores parsed XML documents for repeated uses
+const storageExists = (typeof window.sessionStorage !== "undefined" && window.sessionStorage != null)
+// if sessionStorage doesn't exist on a webpage, the script will fallback to xmlStorage
 
   /*
    * eSheep class.
@@ -84,7 +86,7 @@ class eSheep
     if(!this.userOptions.allowPopup) this.userOptions.allowPopup = "yes";
     if(!this.userOptions.allowPets) this.userOptions.allowPets = "none";
         
-      // CORS: Cross calls are not accepted by new browsers.
+    // CORS: Cross calls are not accepted by new browsers.
     this.animationFile = DEFAULT_XML;
 
     this.id = Date.now() + Math.random();
@@ -140,7 +142,7 @@ class eSheep
     var ajax = new XMLHttpRequest();
     var sheepClass = this;
     var name = this.animationFile + "-file";
-    var cache = window.sessionStorage.getItem(name);
+    var cache = storageExists ? window.sessionStorage.getItem(name) : xmlStorage[name];
 
     if(cache === null)
     {
@@ -150,7 +152,11 @@ class eSheep
         {
           if(this.status == 200)
           {
-              // successfully loaded XML, parse it and create first esheep.
+            // successfully loaded XML, parse it and create first esheep.
+            if(storageExists)
+              window.sessionStorage.setItem(name, this.responseText); // store it into the session storage
+            else
+              xmlStorage[name] = this.responseText;
             window.sessionStorage.setItem(name, this.responseText); // store it into the session storage
             sheepClass._parseXML(this.responseText);
           }
@@ -196,8 +202,8 @@ class eSheep
     var image = this.xmlDoc.getElementsByTagName('image')[0];
     this.tilesX = image.getElementsByTagName("tilesx")[0].textContent;
     this.tilesY = image.getElementsByTagName("tilesy")[0].textContent;
-      // Event listener: Sprite was loaded =>
-      //   play animation only when the sprite is loaded
+    // Event listener: Sprite was loaded =>
+    //   play animation only when the sprite is loaded
     this.sprite.addEventListener("load", () =>
     {
       if(ACTIVATE_DEBUG) console.log("Sprite image loaded");
@@ -209,7 +215,7 @@ class eSheep
       "left:0px;" +
       "max-width: none;";
       this.DOMimg.setAttribute("style", attribute);
-        // prevent to move image (will show the entire sprite sheet if not catched)
+      // prevent to move image (will show the entire sprite sheet if not catched)
       this.DOMimg.addEventListener("dragstart", e => {e.preventDefault(); return false;});
       this.imageW = this.sprite.width / this.tilesX;
       this.imageH = this.sprite.height / this.tilesY;
@@ -326,7 +332,7 @@ class eSheep
       this.DOMinfo.Hide();
       this.infobox = false;
     });
-      // Create About box
+    // Create About box
     var attribute =
       "width:200px;" +
       "height:100px;" +
@@ -378,7 +384,7 @@ class eSheep
     this.DOMinfo.appendChild(document.createElement("br"));
     this.DOMinfo.appendChild(document.createElement("hr"));
     this.DOMinfo.appendChild(htmlP);
-      // Add about and sheep elements to the body
+    // Add about and sheep elements to the body
     document.body.appendChild(this.DOMinfo);
     document.body.appendChild(this.DOMdiv);
         
@@ -448,7 +454,7 @@ class eSheep
           {
             this.animationNode = childs[k];
 
-              // Check if child should be loaded toghether with this animation
+            // Check if child should be loaded toghether with this animation
             var childsRoot = this.xmlDoc.getElementsByTagName('childs')[0];
             var childs = childsRoot.getElementsByTagName('child');
             for(var j=0;j<childs.length;j++)
@@ -472,7 +478,7 @@ class eSheep
         break;
       }
     }
-      // Play next step
+    // Play next step
     this._nextESheepStep();
   }
 
@@ -494,7 +500,7 @@ class eSheep
     this._nextESheepStep();
   }
 
-    // Parse the human readable expression from XML to a computer readable expression
+  // Parse the human readable expression from XML to a computer readable expression
   _parseKeyWords(value)
   {
     value = value.replace(/screenW/g, this.screenW);
@@ -531,10 +537,10 @@ class eSheep
     var prob = 0;
     var nodeFound = false;
 
-      // no more animations (it was the last one)
+    // no more animations (it was the last one)
     if(baseNode.length == 0)
     {
-        // If it is a child, remove the child from document
+      // If it is a child, remove the child from document
       if(this.isChild)
       {
         // remove child
@@ -543,7 +549,7 @@ class eSheep
         document.body.removeChild(this.DOMdiv);
         delete this;
       }
-        // else, spawn sheep again
+      // else, spawn sheep again
       else
       {
         this._spawnESheep();
@@ -590,7 +596,7 @@ class eSheep
           if(ACTIVATE_DEBUG) console.log("Child from Animation");
           var eSheepChild = new eSheep(null, true);
           eSheepChild.animationId = childs[k].getElementsByTagName('next')[0].textContent;
-          var x = childs[k].getElementsByTagName('x')[0].textContent;//
+          var x = childs[k].getElementsByTagName('x')[0].textContent;
           var y = childs[k].getElementsByTagName('y')[0].textContent;
           eSheepChild._setPosition(this._parseKeyWords(x), this._parseKeyWords(y), true);
           eSheepChild.Start(this.animationFile);
